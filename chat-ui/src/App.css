@@ -291,3 +291,27 @@ body {
     width: 100%;
   }
 }
+
+.copy-btn {
+  margin-top: 10px;
+  border: none;
+  background: #2d3748;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.copy-btn:hover {
+  background: #1a202c;
+}
+
+.message pre {
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.message code {
+  border-radius: 4px;
+}
