@@ -3,9 +3,16 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 
+import connectDB from "./config/db.js";
+// import Conversation from "./models/Conversation.js"; // Uncomment when you start using MongoDB CRUD
+
 dotenv.config();
 
+// Connect MongoDB
+connectDB();
+
 const app = express();
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -25,6 +32,7 @@ app.post("/api", async (req, res) => {
       });
     }
 
+    // System prompt
     const contents = [
       {
         role: "user",
@@ -32,7 +40,7 @@ app.post("/api", async (req, res) => {
           {
             text:
               "You are Bilal's AI assistant. " +
-              "Always reply politely, accurately, and in well-formatted Markdown. " +
+              "Always reply politely, accurately, and in Markdown. " +
               "If asked programming questions, explain with examples. " +
               "If you don't know something, honestly say so.",
           },
@@ -40,6 +48,7 @@ app.post("/api", async (req, res) => {
       },
     ];
 
+    // Conversation history
     history.forEach((msg) => {
       contents.push({
         role: msg.sender === "assistant" ? "model" : "user",
@@ -63,14 +72,20 @@ app.post("/api", async (req, res) => {
   } catch (err) {
     console.error("Gemini Error:", err);
 
+    // Better error handling
+    if (err.status === 503) {
+      return res.status(503).json({
+        success: false,
+        error: "Gemini is busy. Please try again in a few seconds.",
+      });
+    }
+
     res.status(500).json({
       success: false,
-      error: err.message || "Something went wrong.",
+      error: err.message || "Internal Server Error",
     });
   }
 });
-
-const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
