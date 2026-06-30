@@ -1,7 +1,10 @@
 import Message from "./Message";
 import { useState, useRef, useEffect } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function ChatWindow({
+  currentConversationId,
   messages,
   setMessages,
   updateConversationTitle,
@@ -11,24 +14,20 @@ function ChatWindow({
 
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages, loading]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
     const currentInput = input.trim();
-    
+
     if (messages.length === 0) {
-  updateConversationTitle(currentInput);
-}
+      updateConversationTitle(currentInput);
+    }
 
     const userMessage = {
       text: currentInput,
@@ -44,40 +43,38 @@ function ChatWindow({
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: currentInput,
-            history: updatedMessages,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Server Error");
-      }
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId: currentConversationId,
+          message: currentInput,
+          history: updatedMessages,
+        }),
+      });
 
       const data = await response.json();
 
-      const botMessage = {
+      if (!response.ok) {
+        throw new Error(data.error || "Server Error");
+      }
+
+      const assistantMessage = {
         text: data.reply,
         sender: "assistant",
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error(error);
 
       setMessages((prev) => [
         ...prev,
         {
-          text: "❌ Unable to connect to AI server.",
+          text: error.message || "Unable to connect to AI.",
           sender: "assistant",
           timestamp: new Date(),
         },
@@ -115,7 +112,7 @@ function ChatWindow({
               </div>
             )}
 
-            <div ref={messagesEndRef}></div>
+            <div ref={messagesEndRef} />
           </>
         )}
       </div>
@@ -138,10 +135,10 @@ function ChatWindow({
 
           <button
             className="send-btn"
-            onClick={sendMessage}
             disabled={loading || !input.trim()}
+            onClick={sendMessage}
           >
-            {loading ? "..." : "📤 Send"}
+            {loading ? "Thinking..." : "📤 Send"}
           </button>
         </div>
       </div>

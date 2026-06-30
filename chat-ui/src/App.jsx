@@ -1,33 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import "./App.css";
 
-function App() {
-  const [conversations, setConversations] = useState([
-    {
-      id: 1,
-      title: "Welcome Chat",
-      messages: [
-        {
-          text: "Hello! How can I help you today?",
-          sender: "assistant",
-          timestamp: new Date(),
-        },
-      ],
-    },
-  ]);
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  const [currentConversationId, setCurrentConversationId] = useState(1);
+function App() {
+  const [conversations, setConversations] = useState([]);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const fetchConversations = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/conversations`);
+      const data = await response.json();
+
+      setConversations(data);
+
+      if (data.length > 0) {
+        setCurrentConversationId(data[0]._id);
+      }
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const currentConversation = conversations.find(
-    (conv) => conv.id === currentConversationId
+    (conv) => conv._id === currentConversationId
   );
 
   const setMessages = (updater) => {
-    setConversations((prevConversations) =>
-      prevConversations.map((conv) => {
-        if (conv.id !== currentConversationId) return conv;
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv._id !== currentConversationId) return conv;
 
         const updatedMessages =
           typeof updater === "function"
@@ -42,54 +53,62 @@ function App() {
     );
   };
 
-  const updateConversationTitle = (firstMessage) => {
+  const updateConversationTitle = (title) => {
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== currentConversationId) return conv;
+        if (conv._id !== currentConversationId) return conv;
 
-        if (
-          conv.title === "Welcome Chat" ||
-          conv.title.startsWith("Chat ")
-        ) {
-          return {
-            ...conv,
-            title:
-              firstMessage.length > 30
-                ? firstMessage.substring(0, 30) + "..."
-                : firstMessage,
-          };
-        }
-
-        return conv;
+        return {
+          ...conv,
+          title,
+        };
       })
     );
   };
 
-  const createNewConversation = () => {
-    const newId =
-      conversations.length > 0
-        ? Math.max(...conversations.map((c) => c.id)) + 1
-        : 1;
+  const createNewConversation = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/conversations`, {
+        method: "POST",
+      });
 
-    const newConversation = {
-      id: newId,
-      title: `Chat ${newId}`,
-      messages: [],
-    };
+      const conversation = await response.json();
 
-    setConversations([...conversations, newConversation]);
-    setCurrentConversationId(newId);
-  };
+      setConversations((prev) => [conversation, ...prev]);
 
-  const deleteConversation = (id) => {
-    const filtered = conversations.filter((c) => c.id !== id);
-
-    setConversations(filtered);
-
-    if (currentConversationId === id && filtered.length > 0) {
-      setCurrentConversationId(filtered[0].id);
+      setCurrentConversationId(conversation._id);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
     }
   };
+
+  const deleteConversation = async (id) => {
+    try {
+      await fetch(`${API_URL}/api/conversations/${id}`, {
+        method: "DELETE",
+      });
+
+      const updated = conversations.filter((c) => c._id !== id);
+
+      setConversations(updated);
+
+      if (updated.length > 0) {
+        setCurrentConversationId(updated[0]._id);
+      } else {
+        setCurrentConversationId(null);
+      }
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="App">
+        <h2>Loading conversations...</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="App">
@@ -103,6 +122,7 @@ function App() {
 
       {currentConversation && (
         <ChatWindow
+          currentConversationId={currentConversationId}
           messages={currentConversation.messages}
           setMessages={setMessages}
           updateConversationTitle={updateConversationTitle}
